@@ -1,13 +1,11 @@
-// backend/controllers/chatController.js
-// Using native fetch (Node.js 18+)
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const pool = require('../db');
+
 const chatController = async (req, res) => {
   try {
     const { message, history = [] } = req.body;
 
-    // Add system-level prompt to guide the model
     const systemPrompt = 'You are a helpful assistant. Respond clearly and concisely to user questions.';
-
-    // Format chat history with system prompt
     const chatPrompt = [
       `System: ${systemPrompt}`,
       ...history.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`),
@@ -19,7 +17,7 @@ const chatController = async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'mistral',
+        model: 'phi',
         prompt: chatPrompt,
         stream: false
       })
@@ -28,6 +26,11 @@ const chatController = async (req, res) => {
     const data = await response.json();
     const reply = data.response;
 
+    await pool.query(
+      'INSERT INTO chats (user_message, bot_reply) VALUES ($1, $2)',
+      [message, reply]
+    );
+
     res.json({ response: reply });
   } catch (err) {
     console.error('Error in chatController:', err);
@@ -35,4 +38,17 @@ const chatController = async (req, res) => {
   }
 };
 
-module.exports = chatController;
+const getChatHistory = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM chats ORDER BY created_at DESC LIMIT 20');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching history:', err);
+    res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+};
+
+module.exports = {
+  createChat: chatController,
+  getChatHistory
+};
