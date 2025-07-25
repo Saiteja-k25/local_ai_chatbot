@@ -1,0 +1,6 @@
+CREATE TABLE chats (
+  id SERIAL PRIMARY KEY,
+  user_message TEXT NOT NULL,
+  bot_reply TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
